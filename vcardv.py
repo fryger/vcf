@@ -134,4 +134,4 @@ class Vcard:
 
 
 
-Vcard.upload()
+Vcard().upload()

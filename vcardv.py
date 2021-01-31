@@ -7,12 +7,13 @@ import configparser
 
 class Vcard:
     def __init__(self):
-        self.config = self.load_config()
-        self.headers = self.authorize()
+        self.config = self.__load_config()
+        self.headers = self.__authorize()
         self.data = []
         self.data_formatted = []
+        self.__request_data()
 
-    def load_config(self):
+    def __load_config(self):
         config = configparser.ConfigParser()
         config.read('config.ini')
         if len(config.sections()) <=0:
@@ -20,7 +21,7 @@ class Vcard:
         else:
             return config
 
-    def authorize(self):
+    def __authorize(self):
         scope = [self.config['application']['scope']]
         app = msal.ConfidentialClientApplication(
             self.config['auth']['appID'],
@@ -31,13 +32,13 @@ class Vcard:
             token = app.acquire_token_for_client(scopes=scope)
         return  {"Authorization": "Bearer " + token["access_token"]}
 
-    def pagination(self,res):
+    def __pagination(self,res):
         if "@odata.nextLink" in res:
             res = requests.get(res["@odata.nextLink"], headers=self.headers).json()
             self.data.append(res)
-            self.pagination(res)
+            self.__pagination(res)
 
-    def picture(self,id):
+    def __picture(self,id):
         req = requests.get(f"https://graph.microsoft.com/v1.0/users/{id}/photo/$value", headers=self.headers)
         if str(req) == "<Response [200]>":
             pic = base64.b64encode(req.content)
@@ -45,24 +46,25 @@ class Vcard:
             pic = pic[:len(pic) - 1]
             return pic
 
-    def request_data(self):
+    def __request_data(self):
         result = requests.get(self.config['application']['query'], headers=self.headers).json()
         self.data.append(result)
-        self.pagination(result)
+        self.__pagination(result)
+        self.__format_data()
 
-    def add_company(self,string):
+    def __add_company(self,string):
         mail = string[string.find("@") + 1:]
         if mail == "ecol-unicon.com":
             company = "Ecol-Unicon Sp. z o.o."
         if mail == "ecol-group.com":
             company = "Ecol-Group Sp. z o.o."
         if mail == "retencja.pl":
-            company = "Retencjapl Sp. z o.o."
+            company = "RetencjaPL Sp. z o.o."
         if mail == "biopro.pl":
             company = "Biopro Sp. z o.o."
         return company
 
-    def format_data(self):
+    def __format_data(self):
         for i in self.data:
             for j in i['value']:
                 try:
@@ -72,12 +74,20 @@ class Vcard:
                         if user in self.config['users']['excluded']:
                             print(f"Excluded user {j['displayName']}, {j['mail']}")
                         else:
-                            j["picture"] = self.picture(j["id"])
-                            j["company"] = self.add_company(j["mail"])
+                            j["picture"] = self.__picture(j["id"])
+                            j["company"] = self.__add_company(j["mail"])
                             print(f"Appending user {j['displayName']}, {j['mail']}")
                             self.data_formatted.append(j)
                 except:
                     print(f"Excluded user {j['displayName']}, {j['mail']}")
+
+    def __output_to_file(self,name,data,type):
+        with open(name, 'w', encoding='utf8') as outfile:
+            if type == 'json':
+                json.dump(data, outfile, ensure_ascii=False)
+            if type == 'string':
+                outfile.write(data)
+
     def generate_csv(self):
         output = ''
         for i in range(len(self.data_formatted)):
@@ -91,21 +101,9 @@ class Vcard:
             output += f'TITLE:{self.data_formatted[i]["jobTitle"]}\n'
             output += f'PHOTO;ENCODING=BASE64;JPEG:{self.data_formatted[i]["picture"]}\n'
             output += 'END:VCARD\n'
-        self.output_to_file("finall.vcf", output,"string")
+        self.__output_to_file("finall.vcf", output,"string")
 
-    def output_to_file(self,name,data,type):
-        with open(name, 'w', encoding='utf8') as outfile:
-            if type == 'json':
-                json.dump(data, outfile, ensure_ascii=False)
-            if type == 'string':
-                outfile.write(data)
 
-    def print(self):
-        self.request_data()
-        self.format_data()
-        #self.output_to_file("dane.json",self.data_formatted,"json")
-        self.generate_csv()
 
-a = Vcard()
 
-a.print()
+Vcard().generate_csv()

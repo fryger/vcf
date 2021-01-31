@@ -87,20 +87,23 @@ class Vcard:
             output += f'FN:{self.data_formatted[i]["displayName"]}\n'
             output += f'TEL;CELL:{str(self.data_formatted[i]["mobilePhone"]).replace(" ", "")}\n'
             output += f'EMAIL:{self.data_formatted[i]["mail"]}\n'
-            output += f'ORG:{""};{self.data_formatted[i]["department"]}\n'
+            output += f'ORG:{self.data_formatted[i]["company"]};{self.data_formatted[i]["department"]}\n'
             output += f'TITLE:{self.data_formatted[i]["jobTitle"]}\n'
             output += f'PHOTO;ENCODING=BASE64;JPEG:{self.data_formatted[i]["picture"]}\n'
             output += 'END:VCARD\n'
-        self.output_to_file("finall.vcf", output)
+        self.output_to_file("finall.vcf", output,"string")
 
-    def output_to_file(self,name,data):
+    def output_to_file(self,name,data,type):
         with open(name, 'w', encoding='utf8') as outfile:
-            json.dump(data, outfile, ensure_ascii=False)
+            if type == 'json':
+                json.dump(data, outfile, ensure_ascii=False)
+            if type == 'string':
+                outfile.write(data)
 
     def print(self):
         self.request_data()
         self.format_data()
-        #self.output_to_file("dane.json",self.data_formatted)
+        #self.output_to_file("dane.json",self.data_formatted,"json")
         self.generate_csv()
 
 a = Vcard()

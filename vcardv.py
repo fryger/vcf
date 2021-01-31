@@ -12,6 +12,7 @@ class Vcard:
         self.data = []
         self.data_formatted = []
         self.__request_data()
+        self.csv_data = self.__generate_csv()
 
     def __load_config(self):
         config = configparser.ConfigParser()
@@ -88,7 +89,7 @@ class Vcard:
             if type == 'string':
                 outfile.write(data)
 
-    def generate_csv(self):
+    def __generate_csv(self):
         output = ''
         for i in range(len(self.data_formatted)):
             output += 'BEGIN:VCARD\n'
@@ -101,9 +102,36 @@ class Vcard:
             output += f'TITLE:{self.data_formatted[i]["jobTitle"]}\n'
             output += f'PHOTO;ENCODING=BASE64;JPEG:{self.data_formatted[i]["picture"]}\n'
             output += 'END:VCARD\n'
-        self.__output_to_file("finall.vcf", output,"string")
+        self.__output_to_file("kontakty.vcf", output,"string")
+        return output
+
+    def upload(self):
+        data = str.encode(self.csv_data)
+        len_data = len(data)
+        upload_range = f'bytes 0-{len_data - 1}/{len_data}'
+        response = requests.post(
+            self.config['application']['file_query'],
+            headers=self.headers,
+            json={
+                '@microsoft.graph.conflictBehavior': 'replace',
+                'description': 'A large test file',
+                'fileSystemInfo': {'@odata.type': 'microsoft.graph.fileSystemInfo'},
+                'name': 'kontakty.vcf'
+            }
+            )
+        response_dict = json.loads(response.text)
+        upload_response = requests.put(
+            response_dict["uploadUrl"],
+            headers={
+                'Content-Length': str(len_data),
+                'Content-Range': upload_range
+            },
+            data=data
+        )
+
+        print(upload_response.content)
 
 
 
 
-Vcard().generate_csv()
+Vcard.upload()

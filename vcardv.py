@@ -3,7 +3,7 @@ import requests
 import json
 import base64
 import configparser
-
+import datetime
 
 class Vcard:
     def __init__(self):
@@ -73,14 +73,19 @@ class Vcard:
                     user = user[:user.find("@")]
                     if user.find(".") != -1:
                         if user in self.config['users']['excluded']:
-                            print(f"Excluded user {j['displayName']}, {j['mail']}")
+                            self.__log(f"Excluded user {j['displayName']}, {j['mail']}")
                         else:
                             j["picture"] = self.__picture(j["id"])
                             j["company"] = self.__add_company(j["mail"])
-                            print(f"Appending user {j['displayName']}, {j['mail']}")
+                            self.__log(f"Appending user {j['displayName']}, {j['mail']}")
                             self.data_formatted.append(j)
                 except:
-                    print(f"Excluded user {j['displayName']}, {j['mail']}")
+                    self.__log(f"Excluded user {j['displayName']}, {j['mail']}")
+    def __log(self, string):
+        ct = datetime.datetime.now() 
+        with open("history.log", 'a', encoding='utf8') as outfile:
+            outfile.write(f"{ct} : {string}\n")
+        
 
     def __output_to_file(self,name,data,type):
         with open(name, 'w', encoding='utf8') as outfile:
@@ -114,7 +119,6 @@ class Vcard:
             headers=self.headers,
             json={
                 '@microsoft.graph.conflictBehavior': 'replace',
-                'description': 'A large test file',
                 'fileSystemInfo': {'@odata.type': 'microsoft.graph.fileSystemInfo'},
                 'name': 'kontakty.vcf'
             }
@@ -129,9 +133,9 @@ class Vcard:
             data=data
         )
 
-        print(upload_response.content)
+        self.__log(json.loads(upload_response.text)["@content.downloadUrl"])
 
 
 
-
-Vcard().upload()
+if __name__ == "__main__":
+    Vcard().upload()

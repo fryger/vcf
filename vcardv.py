@@ -11,13 +11,14 @@ class Vcard:
         self.headers = self.__authorize()
         self.data = []
         self.data_formatted = []
+        self.size = 64, 64
         self.__request_data()
         self.csv_data = self.__generate_csv()
 
     def __load_config(self):
         config = configparser.ConfigParser()
         config.read('config.ini')
-        if len(config.sections()) <=0:
+        if len(config.sections()) <= 0:
             raise Exception("No, empty or wrong config loaded")
         else:
             return config
@@ -31,15 +32,15 @@ class Vcard:
         token = app.acquire_token_silent(scope, account=None)
         if not token:
             token = app.acquire_token_for_client(scopes=scope)
-        return  {"Authorization": "Bearer " + token["access_token"]}
+        return {"Authorization": "Bearer " + token["access_token"]}
 
-    def __pagination(self,res):
+    def __pagination(self, res):
         if "@odata.nextLink" in res:
             res = requests.get(res["@odata.nextLink"], headers=self.headers).json()
             self.data.append(res)
             self.__pagination(res)
 
-    def __picture(self,id):
+    def __picture(self, id):
         req = requests.get(f"https://graph.microsoft.com/v1.0/users/{id}/photo/$value", headers=self.headers)
         if str(req) == "<Response [200]>":
             pic = base64.b64encode(req.content)
@@ -53,7 +54,7 @@ class Vcard:
         self.__pagination(result)
         self.__format_data()
 
-    def __add_company(self,string):
+    def __add_company(self, string):
         mail = string[string.find("@") + 1:]
         if mail == "ecol-unicon.com":
             company = "Ecol-Unicon Sp. z o.o."
@@ -81,13 +82,13 @@ class Vcard:
                             self.data_formatted.append(j)
                 except:
                     self.__log(f"Excluded user {j['displayName']}, {j['mail']}")
+
     def __log(self, string):
-        ct = datetime.datetime.now() 
+        ct = datetime.datetime.now()
         with open("history.log", 'a', encoding='utf8') as outfile:
             outfile.write(f"{ct} : {string}\n")
-        
 
-    def __output_to_file(self,name,data,type):
+    def __output_to_file(self, name, data, type):
         with open(name, 'w', encoding='utf8') as outfile:
             if type == 'json':
                 json.dump(data, outfile, ensure_ascii=False)
@@ -105,9 +106,10 @@ class Vcard:
             output += f'EMAIL:{self.data_formatted[i]["mail"]}\n'
             output += f'ORG:{self.data_formatted[i]["company"]};{self.data_formatted[i]["department"]}\n'
             output += f'TITLE:{self.data_formatted[i]["jobTitle"]}\n'
-            output += f'PHOTO;ENCODING=BASE64;JPEG:{self.data_formatted[i]["picture"]}\n'
+            if self.data_formatted[i]["picture"] is not None:
+                output += f'PHOTO;ENCODING=BASE64;JPEG:{self.data_formatted[i]["picture"]}\n'
             output += 'END:VCARD\n'
-        self.__output_to_file("kontakty.vcf", output,"string")
+        self.__output_to_file("kontakty.vcf", output, "string")
         return output
 
     def upload(self):
@@ -122,7 +124,7 @@ class Vcard:
                 'fileSystemInfo': {'@odata.type': 'microsoft.graph.fileSystemInfo'},
                 'name': 'kontakty.vcf'
             }
-            )
+        )
         response_dict = json.loads(response.text)
         upload_response = requests.put(
             response_dict["uploadUrl"],
@@ -134,7 +136,6 @@ class Vcard:
         )
 
         self.__log(json.loads(upload_response.text)["@content.downloadUrl"])
-
 
 
 if __name__ == "__main__":
